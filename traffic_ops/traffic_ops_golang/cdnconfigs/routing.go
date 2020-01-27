@@ -90,8 +90,9 @@ func getCDNConfigRoutingStats(req *http.Request, inf *api.APIInfo, cdnName tc.CD
 
 func getCDNConfigRoutingCachegroups(tx *sql.Tx, cdnName tc.CDNName) ([]tc.TMCacheGroup, error) {
 	q := `
-SELECT distinct(cg.name), cg.latitude, cg.longitude
+SELECT distinct(cg.name), co.latitude, co.longitude
 FROM cachegroup as cg
+JOIN coordinate AS co ON co.id = cg.coordinate
 JOIN server as s ON s.cachegroup = cg.id
 WHERE s.cdn_id = (select id from cdn where name = $1)
 `
