@@ -43,7 +43,7 @@ Request Structure
 :longDesc1:   The :ref:`ds-longdesc2` of this :term:`Delivery Service`
 :longDesc2:   The :ref:`ds-longdesc3` of this :term:`Delivery Service`
 
-.. note:: All of these fields are optional; this ``PUT`` behaves more like a ``PATCH``
+.. note:: All of these fields are optional. Although, whatever is not passed in will be set to an empty string; this ``PUT`` behaves more like a ``PATCH``
 
 .. code-block:: http
 	:caption: Request Example

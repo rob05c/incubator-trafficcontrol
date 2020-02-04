@@ -1,4 +1,4 @@
-package v14
+package v1
 
 /*
 
@@ -34,7 +34,7 @@ func UpdateTestDeliveryServiceSafe(t *testing.T) {
 
 	dses, _, err := TOSession.GetDeliveryServices()
 	if err != nil {
-		t.Fatalf("cannot GET Delivery Services: %v\n", err)
+		t.Fatalf("cannot GET Delivery Services: %v", err)
 	}
 
 	remoteDS := tc.DeliveryService{}
@@ -58,18 +58,18 @@ func UpdateTestDeliveryServiceSafe(t *testing.T) {
 	}
 
 	if _, err := TOSession.UpdateDeliveryServiceSafe(remoteDS.ID, &req); err != nil {
-		t.Fatalf("cannot UPDATE DeliveryService safe: %v\n", err)
+		t.Fatalf("cannot UPDATE DeliveryService safe: %v", err)
 	}
 
 	updatedDS, _, err := TOSession.GetDeliveryService(strconv.Itoa(remoteDS.ID))
 	if err != nil {
-		t.Fatalf("cannot GET Delivery Service by ID: id %v xmlid '%v' - %v\n", remoteDS.ID, remoteDS.XMLID, err)
+		t.Fatalf("cannot GET Delivery Service by ID: id %v xmlid '%v' - %v", remoteDS.ID, remoteDS.XMLID, err)
 	}
 	if updatedDS == nil {
-		t.Fatalf("GET Delivery Service by ID returned nil err, but nil DS: %v - nil\n", remoteDS.XMLID)
+		t.Fatalf("GET Delivery Service by ID returned nil err, but nil DS: %v - nil", remoteDS.XMLID)
 	}
 
 	if *req.DisplayName != updatedDS.DisplayName || *req.InfoURL != updatedDS.InfoURL || *req.LongDesc != updatedDS.LongDesc || *req.LongDesc1 != updatedDS.LongDesc1 {
-		t.Fatalf("ds safe update succeeded, but get delivery service didn't match. expected: {'%v' '%v' '%v' '%v'} actual: {'%v' '%v' '%v' '%v'}\n", *req.DisplayName, *req.InfoURL, *req.LongDesc, *req.LongDesc1, updatedDS.DisplayName, updatedDS.InfoURL, updatedDS.LongDesc, updatedDS.LongDesc1)
+		t.Fatalf("ds safe update succeeded, but get delivery service didn't match. expected: {'%v' '%v' '%v' '%v'} actual: {'%v' '%v' '%v' '%v'}", *req.DisplayName, *req.InfoURL, *req.LongDesc, *req.LongDesc1, updatedDS.DisplayName, updatedDS.InfoURL, updatedDS.LongDesc, updatedDS.LongDesc1)
 	}
 }

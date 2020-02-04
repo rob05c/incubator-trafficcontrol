@@ -30,36 +30,12 @@ import (
 	"github.com/apache/trafficcontrol/traffic_ops/traffic_ops_golang/tenant"
 )
 
-func UpdateSafeV14(w http.ResponseWriter, r *http.Request) {
-	ds, ok := UpdateSafe(w, r)
-	if !ok {
-		return
-	}
-	api.WriteRespAlertObj(w, r, tc.SuccessLevel, "Deliveryservice safe update was successful.", []tc.DeliveryServiceNullableV14{tc.DeliveryServiceNullableV14(ds)})
-}
-
-func UpdateSafeV13(w http.ResponseWriter, r *http.Request) {
-	ds, ok := UpdateSafe(w, r)
-	if !ok {
-		return
-	}
-	api.WriteRespAlertObj(w, r, tc.SuccessLevel, "Deliveryservice safe update was successful.", []tc.DeliveryServiceNullableV13{ds.DeliveryServiceNullableV13})
-}
-
-func UpdateSafeV12(w http.ResponseWriter, r *http.Request) {
-	ds, ok := UpdateSafe(w, r)
-	if !ok {
-		return
-	}
-	api.WriteRespAlertObj(w, r, tc.SuccessLevel, "Deliveryservice safe update was successful.", []tc.DeliveryServiceNullableV12{ds.DeliveryServiceNullableV12})
-}
-
-// UpdateSafe updates the delivery service, writing any errors. Returns true on success, or false on error. If an error occured, it will be written to the client and logged appropriately, and the caller shouldn't write anything further. On success, the caller should write the delivery service response to the client.
-func UpdateSafe(w http.ResponseWriter, r *http.Request) (tc.DeliveryServiceNullable, bool) {
+// UpdateSafe is the handler for updating the delivery service based on the payload that is set for DeliveryServiceSafeUpdate.
+func UpdateSafe(w http.ResponseWriter, r *http.Request) {
 	inf, userErr, sysErr, errCode := api.NewInfo(r, []string{"id"}, []string{"id"})
 	if userErr != nil || sysErr != nil {
 		api.HandleErr(w, r, inf.Tx.Tx, errCode, userErr, sysErr)
-		return tc.DeliveryServiceNullable{}, false
+		return
 	}
 	defer inf.Close()
 
@@ -68,35 +44,35 @@ func UpdateSafe(w http.ResponseWriter, r *http.Request) (tc.DeliveryServiceNulla
 	userErr, sysErr, errCode = tenant.CheckID(inf.Tx.Tx, inf.User, dsID)
 	if userErr != nil || sysErr != nil {
 		api.HandleErr(w, r, inf.Tx.Tx, errCode, userErr, sysErr)
-		return tc.DeliveryServiceNullable{}, false
+		return
 	}
 
 	ds := tc.DeliveryServiceSafeUpdate{}
 	if err := api.Parse(r.Body, inf.Tx.Tx, &ds); err != nil {
 		api.HandleErr(w, r, inf.Tx.Tx, http.StatusBadRequest, errors.New("decoding: "+err.Error()), nil)
-		return tc.DeliveryServiceNullable{}, false
+		return
 	}
 
 	ok, err := updateDSSafe(inf.Tx.Tx, dsID, ds)
 	if err != nil {
 		api.HandleErr(w, r, inf.Tx.Tx, http.StatusInternalServerError, nil, errors.New("updating delivery service safe: "+err.Error()))
-		return tc.DeliveryServiceNullable{}, false
+		return
 	}
 	if !ok {
 		api.HandleErr(w, r, inf.Tx.Tx, http.StatusNotFound, nil, nil)
-		return tc.DeliveryServiceNullable{}, false
+		return
 	}
 
 	dses, userErr, sysErr, errCode := readGetDeliveryServices(inf.Params, inf.Tx, inf.User)
 	if userErr != nil || sysErr != nil {
 		api.HandleErr(w, r, inf.Tx.Tx, errCode, userErr, sysErr)
-		return tc.DeliveryServiceNullable{}, false
+		return
 	}
 	if len(dses) != 1 {
 		api.HandleErr(w, r, inf.Tx.Tx, http.StatusInternalServerError, nil, fmt.Errorf("delivery service safe update, read expected 1 delivery service, got %v", len(dses)))
-		return tc.DeliveryServiceNullable{}, false
+		return
 	}
-	return dses[0], true
+	api.WriteRespAlertObj(w, r, tc.SuccessLevel, "Deliveryservice safe update was successful.", []tc.DeliveryServiceNullable{dses[0]})
 }
 
 // updateDSSafe updates the given delivery service in the database. Returns whether the DS existed, and any error.
