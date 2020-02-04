@@ -306,16 +306,78 @@ func GetDSTenantIDFromXMLID(tx *sql.Tx, xmlid string) (int, bool, error) {
 	return id, true, nil
 }
 
+// returns returns the delivery service name and cdn, whether it existed, and any error.
 func GetDSNameAndCDNFromID(tx *sql.Tx, id int) (tc.DeliveryServiceName, tc.CDNName, bool, error) {
-	dsName := tc.DeliveryServiceName("")
-	cdnName := tc.CDNName("")
-	if err := tx.QueryRow(`SELECT ds.xml_id, cdn.name FROM deliveryservice ds JOIN cdn ON cdn.id = ds.cdn_id WHERE ds.id = $1`, id).Scan(&dsName, &cdnName); err != nil {
+	name := tc.DeliveryServiceName("")
+	cdn := tc.CDNName("")
+	if err := tx.QueryRow(`
+SELECT ds.xml_id, cdn.name
+FROM deliveryservice as ds
+JOIN cdn on cdn.id = ds.cdn_id
+WHERE ds.id = $1
+`, id).Scan(&name, &cdn); err != nil {
 		if err == sql.ErrNoRows {
 			return tc.DeliveryServiceName(""), tc.CDNName(""), false, nil
 		}
-		return tc.DeliveryServiceName(""), tc.CDNName(""), false, errors.New("querying: " + err.Error())
+		return tc.DeliveryServiceName(""), tc.CDNName(""), false, errors.New("querying delivery service name: " + err.Error())
 	}
-	return dsName, cdnName, true, nil
+	return name, cdn, true, nil
+}
+
+// GetFederationResolversByFederationID fetches all of the federation resolvers currently assigned to a federation.
+// In the event of an error, it will return an empty slice and the error.
+func GetFederationResolversByFederationID(tx *sql.Tx, fedID int) ([]tc.FederationResolver, error) {
+	qry := `
+		SELECT
+		  fr.ip_address,
+		  frt.name as resolver_type,
+		  ffr.federation_resolver
+		FROM
+		  federation_federation_resolver ffr
+		  JOIN federation_resolver fr ON ffr.federation_resolver = fr.id
+		  JOIN type frt on fr.type = frt.id
+		WHERE
+		  ffr.federation = $1
+		ORDER BY fr.ip_address
+	`
+	rows, err := tx.Query(qry, fedID)
+	if err != nil {
+		return nil, fmt.Errorf(
+			"error querying federation_resolvers by federation ID [%d]: %s", fedID, err.Error(),
+		)
+	}
+	defer rows.Close()
+
+	resolvers := []tc.FederationResolver{}
+	for rows.Next() {
+		fr := tc.FederationResolver{}
+		err := rows.Scan(
+			&fr.IPAddress,
+			&fr.Type,
+			&fr.ID,
+		)
+		if err != nil {
+			return resolvers, fmt.Errorf(
+				"error scanning federation_resolvers rows for federation ID [%d]: %s", fedID, err.Error(),
+			)
+		}
+		resolvers = append(resolvers, fr)
+	}
+	return resolvers, nil
+}
+
+// GetFederationNameFromID returns the federation's name, whether a federation with ID exists, or any error.
+func GetFederationNameFromID(id int, tx *sql.Tx) (string, bool, error) {
+	var name string
+	if err := tx.QueryRow(`SELECT cname from federation where id = $1`, id).Scan(&name); err != nil {
+		if err == sql.ErrNoRows {
+			return "", false, nil
+		}
+		return name, false, fmt.Errorf(
+			"error querying federation name from id [%d]: %s", id, err.Error(),
+		)
+	}
+	return name, true, nil
 }
 
 // GetProfileNameFromID returns the profile's name, whether a profile with ID exists, or any error.
@@ -560,6 +622,35 @@ func GetCDNs(tx *sql.Tx) (map[tc.CDNName]struct{}, error) {
 	return cdns, nil
 }
 
+// GetGlobalParams returns the value of the global param, whether it existed, or any error
+func GetGlobalParam(tx *sql.Tx, name string) (string, bool, error) {
+	return GetParam(tx, name, "global")
+}
+
+// GetParam returns the value of the param, whether it existed, or any error.
+func GetParam(tx *sql.Tx, name string, configFile string) (string, bool, error) {
+	val := ""
+	if err := tx.QueryRow(`select value from parameter where name = $1 and config_file = $2`, name, configFile).Scan(&val); err != nil {
+		if err == sql.ErrNoRows {
+			return "", false, nil
+		}
+		return "", false, errors.New("Error querying global paramter '" + name + "': " + err.Error())
+	}
+	return val, true, nil
+}
+
+// GetParamNameByID returns the name of the param, whether it existed, or any error.
+func GetParamNameByID(tx *sql.Tx, id int) (string, bool, error) {
+	name := ""
+	if err := tx.QueryRow(`select name from parameter where id = $1`, id).Scan(&name); err != nil {
+		if err == sql.ErrNoRows {
+			return "", false, nil
+		}
+		return "", false, fmt.Errorf("Error querying global paramter %v: %v", id, err.Error())
+	}
+	return name, true, nil
+}
+
 // GetCacheGroupNameFromID Get Cache Group name from a given ID
 func GetCacheGroupNameFromID(tx *sql.Tx, id int64) (tc.CacheGroupName, bool, error) {
 	name := ""
@@ -599,18 +690,6 @@ func GetUserByEmail(tx *sqlx.Tx, email string) (tc.User, bool, error) {
 	return u, true, nil
 }
 
-// GetGlobalParam returns the global parameter with the requested name, whether it existed, and any error
-func GetGlobalParam(tx *sql.Tx, name string) (string, bool, error) {
-	val := ""
-	if err := tx.QueryRow(`SELECT value FROM parameter WHERE config_file = 'global' and name = $1`, name).Scan(&val); err != nil {
-		if err == sql.ErrNoRows {
-			return "", false, nil
-		}
-		return "", false, errors.New("querying global parameter '" + name + "': " + err.Error())
-	}
-	return val, true, nil
-}
-
 // UsernameExists reports whether or not the the given username exists as a user in the database to
 // which the passed transaction refers. If anything goes wrong when checking the existence of said
 // user, the error is directly returned to the caller. Note that in that case, no real meaning
@@ -620,6 +699,18 @@ func UsernameExists(uname string, tx *sql.Tx) (bool, error) {
 	var exists bool
 	err := row.Scan(&exists)
 	return exists, err
+}
+
+// GetTypeIDByName reports the id of the type and whether or not a type exists with the given name.
+func GetTypeIDByName(t string, tx *sql.Tx) (int, bool, error) {
+	id := 0
+	if err := tx.QueryRow(`SELECT id FROM type WHERE name = $1`, t).Scan(&id); err != nil {
+		if err == sql.ErrNoRows {
+			return id, false, nil
+		}
+		return id, false, errors.New("querying type id: " + err.Error())
+	}
+	return id, true, nil
 }
 
 // GetUserByID returns the user with the requested ID if one exists. The second return value is a
