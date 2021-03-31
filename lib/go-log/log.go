@@ -25,6 +25,7 @@ import (
 	"io"
 	"log"
 	"os"
+	"strings"
 	"time"
 )
 
@@ -76,17 +77,28 @@ func logf(logger *log.Logger, format string, v ...interface{}) {
 	if logger == nil {
 		return
 	}
-	logger.Output(stackFrame, time.Now().UTC().Format(timeFormat)+": "+fmt.Sprintf(format, v...))
+	msg := fmt.Sprintf(format, v...)
+	msg = strings.TrimSpace(msg)
+	msgs := strings.Split(msg, "\n")
+	for _, line := range msgs {
+		logger.Output(stackFrame, time.Now().UTC().Format(timeFormat)+": "+line+"\n")
+	}
 }
 
 func logln(logger *log.Logger, v ...interface{}) {
 	if logger == nil {
 		return
 	}
-	logger.Output(stackFrame, time.Now().UTC().Format(timeFormat)+": "+fmt.Sprintln(v...))
+	msg := fmt.Sprintln(v...)
+	msg = strings.TrimSpace(msg)
+	msgs := strings.Split(msg, "\n")
+	for _, line := range msgs {
+		logger.Output(stackFrame, time.Now().UTC().Format(timeFormat)+": "+line+"\n")
+	}
 }
 
-const timeFormat = time.RFC3339Nano
+// timeFormat is time.RFC3339Nano but with a fixed width
+const timeFormat = "2006-01-02T15:04:05.000000Z07:00"
 const stackFrame = 3
 
 func Errorf(format string, v ...interface{}) { logf(Error, format, v...) }
