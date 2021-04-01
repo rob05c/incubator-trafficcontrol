@@ -2018,9 +2018,9 @@
         {
             "cachegroup": "cachegroup1",
             "cdnName": "cdn1",
-            "domainName": "local",
+            "domainName": "infra.ciab.test",
             "guid": null,
-            "hostName": "riak",
+            "hostName": "trafficvault",
             "httpsPort": 8088,
             "iloIpAddress": "",
             "iloIpGateway": "",
