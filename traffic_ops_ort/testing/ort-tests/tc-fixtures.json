@@ -413,7 +413,7 @@
             "regionalGeoBlocking": false,
             "remapText": "@plugin=tslua.so @pparam=/opt/trafficserver/etc/trafficserver/remapPlugin1.lua",
             "routingName": "ccr-ds1",
-            "signed": false,
+            "signed": true,
             "signingAlgorithm": "url_sig",
             "sslKeyVersion": 2,
             "tenant": "tenant1",

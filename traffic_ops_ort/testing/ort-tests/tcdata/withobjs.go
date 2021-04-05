@@ -29,6 +29,7 @@ const (
 	CDNFederations
 	Coordinates
 	DeliveryServices
+	DeliveryServiceServers
 	DeliveryServicesRegexes
 	DeliveryServiceRequests
 	DeliveryServiceRequestComments
@@ -78,6 +79,7 @@ func (r *TCData) WithObjs(t *testing.T, objs []TCObj, f func()) {
 		CDNFederations:                       {r.CreateTestCDNFederations, r.DeleteTestCDNFederations},
 		Coordinates:                          {r.CreateTestCoordinates, r.DeleteTestCoordinates},
 		DeliveryServices:                     {r.CreateTestDeliveryServices, r.DeleteTestDeliveryServices},
+		DeliveryServiceServers:               {r.CreateTestDeliveryServiceServers, r.DeleteTestDeliveryServiceServers},
 		DeliveryServicesRegexes:              {r.CreateTestDeliveryServicesRegexes, r.DeleteTestDeliveryServicesRegexes},
 		DeliveryServiceRequests:              {r.CreateTestDeliveryServiceRequests, r.DeleteTestDeliveryServiceRequests},
 		DeliveryServiceRequestComments:       {r.CreateTestDeliveryServiceRequestComments, r.DeleteTestDeliveryServiceRequestComments},

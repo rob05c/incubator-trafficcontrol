@@ -18,6 +18,7 @@ package tcdata
 import (
 	"net/url"
 	"strconv"
+	"strings"
 	"testing"
 
 	"github.com/apache/trafficcontrol/lib/go-tc"
@@ -38,6 +39,25 @@ func (r *TCData) CreateTestDeliveryServices(t *testing.T) {
 		if err != nil {
 			t.Errorf("could not CREATE delivery service '%s': %v", *ds.XMLID, err)
 		}
+		if ds.Type == nil {
+			continue
+		}
+
+		dsIsHTTPOrDNS := ds.Type.IsHTTP() || ds.Type.IsDNS() // exclude any_map and other special types
+
+		if dsIsHTTPOrDNS &&
+			ds.Signed == true &&
+			ds.SigningAlgorithm != nil &&
+			*ds.SigningAlgorithm == tc.SigningAlgorithmURLSig {
+			if ds.XMLID == nil {
+				t.Fatalf("could not generate delivery service url sig keys: test data had DS with nil xmlId")
+			}
+			_, err := TOSession.Client.Post(TOSession.URL+TOSession.APIBase()+`/deliveryservices/xmlId/`+*ds.XMLID+`/urlkeys/generate`, "", nil)
+			if err != nil {
+				t.Fatalf("could not create delivery service '%s' urlsig keys: %v", *ds.XMLID, err)
+			}
+		}
+
 	}
 }
 
@@ -87,4 +107,75 @@ func (r *TCData) DeleteTestDeliveryServices(t *testing.T) {
 			t.Errorf("cannot DELETE parameter by ID (%d): %v - %v", param.ID, err, deleted)
 		}
 	}
+}
+
+func (r *TCData) CreateTestDeliveryServiceServers(t *testing.T) {
+	servers, _, err := TOSession.GetServersWithHdr(nil, nil) // (tc.ServersV3Response, toclientlib.ReqInf, error) {
+	if err != nil {
+		t.Fatalf("could not get servers: %v", err)
+	}
+
+	dses, _, err := TOSession.GetDeliveryServicesV30WithHdr(nil, nil)
+	if err != nil {
+		t.Fatalf("could not get servers: %v", err)
+	}
+
+	for _, ds := range dses {
+		if ds.ID == nil {
+			t.Fatal("ds had nil ID")
+		} else if ds.CDNID == nil {
+			t.Fatal("ds had nil CDNID")
+		}
+		if ds.Topology != nil && *ds.Topology != "" {
+			continue
+		}
+
+		dsIsHTTPOrDNS := ds.Type.IsHTTP() || ds.Type.IsDNS() // exclude any_map and other special types
+		if !dsIsHTTPOrDNS {
+			continue
+		}
+
+		serverIDs := []int{}
+
+		for _, server := range servers.Response {
+			if server.ID == nil {
+				t.Fatal("server had nil ID")
+			} else if server.CDNID == nil {
+				t.Fatal("server had nil CDNID")
+			}
+			if *ds.CDNID != *server.CDNID {
+				continue
+			}
+			isCache := strings.HasPrefix(server.Type, "EDGE") || strings.HasPrefix(server.Type, "MID")
+			if !isCache {
+				continue
+			}
+			serverIDs = append(serverIDs, *server.ID)
+		}
+
+		_, _, err := TOSession.CreateDeliveryServiceServers(*ds.ID, serverIDs, false)
+		if err != nil {
+			t.Fatal("creating deliveryserviceserver: %v", err)
+		}
+	}
+}
+
+func (r *TCData) DeleteTestDeliveryServiceServers(t *testing.T) {
+	// TODO figure out how to clean up DSS, when the API won't let you.
+
+	// dses, _, err := TOSession.GetDeliveryServicesV30WithHdr(nil, nil)
+	// if err != nil {
+	// 	t.Fatalf("could not get servers: %v", err)
+	// }
+
+	// for _, ds := range dses {
+	// 	if ds.ID == nil {
+	// 		t.Fatal("ds had nil ID")
+	// 	}
+
+	// 	_, _, err := TOSession.CreateDeliveryServiceServers(*ds.ID, []int{}, true)
+	// 	if err != nil {
+	// 		t.Fatal("creating deliveryserviceserver: %v", err)
+	// 	}
+	// }
 }
